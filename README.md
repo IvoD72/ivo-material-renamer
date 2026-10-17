@@ -1,28 +1,60 @@
-# Ivo Material Renamer for 3ds Max
+# Ivo Material Renamer for 3ds Max — v1.3
 
 Gives your materials real names. Instead of `Material #36`, `02` or `VRayMtl_07`
 you get `Oak_Wood`, `Brushed_Steel`, `Oyster_Shell`.
 
-It sends each material's texture and a viewport grab to Claude, gets a name back,
-shows you the full list, and renames only after you confirm. Duplicates are
-numbered `_001`, `_002` automatically.
-
-> **Download:** grab the two script files from
-> [Releases](../../releases) (or clone the repo).
+It shows Claude a picture of every part of your model, gets a name back for each
+material, shows you the full list, and renames only after you confirm.
+Duplicates are numbered `_001`, `_002` automatically.
 
 ---
 
 ## What it does
 
 * Reads the materials of the selected objects (or of the whole scene)
-* Looks at the diffuse texture of each one and at the viewport
+* Takes a picture of the part each material is on, and looks at its texture
+  and settings
 * Proposes a descriptive name for every material
 * Shows the proposals — nothing is renamed until you confirm
 * Numbers duplicates `_001`, `_002`, …
+* Optionally copies the textures into the scene's own folder first
 * Optionally renames the texture **files** on disk to match, and fixes the paths
   in the scene
 
-Works on Multi/Sub-Object materials as well.
+Works with VRayMtl, Physical Material, Standard, CoronaPhysicalMtl and the
+older CoronaMtl, and with Bitmap, VRayBitmap, CoronaBitmap and OSLMap textures,
+also when they sit inside Composite, Color Correction, Falloff, CoronaMultiMap
+and similar maps.
+
+Container materials — Multi/Sub-Object, Blend, Double Sided, VRayBlendMtl,
+CoronaLayeredMtl — get a name for the whole object, and every material inside
+them gets its own.
+
+Downloaded models often point at the author's own folders (`D:\3ds max\...`)
+or at a bare file name. The tool then looks for the file by name next to the
+scene and up to three folders below it (`Maps`, `Texture`, …).
+
+## How it works
+
+1. **Collects the materials** of the selection (or the whole scene), including
+   every material inside Multi/Sub-Object and other container materials.
+2. **Takes a picture of each part.** For every material the tool shows only the
+   faces that use it — everything else is hidden for a moment — zooms in and
+   grabs the viewport. Your objects are never changed: it works on a temporary
+   copy of the mesh, deletes it right after, and puts back hidden objects,
+   selection and the view exactly as they were (camera views included).
+3. **Adds what the picture cannot show:** how much of the model the part covers,
+   whether it sits at the top, middle or bottom, whether it is a volume inside
+   another part (a liquid in a bottle), the material's key settings
+   (refraction, IOR, fog colour, metalness, glossiness) and its texture.
+4. **Asks Claude** to name each material from its own picture — in batches of
+   30, so the size of the scene does not matter.
+5. **Shows you the list.** Nothing is renamed until you press Yes.
+6. Optionally **collects and renames the texture files** — see below.
+
+One run costs roughly 1–3 US cents per asset, paid to Anthropic through your own
+API key. The Listener (F11) shows every step, including the faces, share and
+height of each part.
 
 ## Requirements
 
@@ -69,17 +101,40 @@ Map #2037_16.png   ->   Oyster_Shell_Diff.png
 OSLMap_27.png      ->   Oyster_Shell_Rough.png
 ```
 
+**Your original files are never renamed.** The textures are first copied into
+`<scene folder>\maps\` and only those copies get the new names, so any other
+scene that uses the originals keeps working. (That is why ticking this box
+also ticks *Collect textures* below.)
+
 Safety rules built in:
 
 * available only in **Only on SELECTED objects** mode
-* touches only files inside the scene's own folder or its subfolders — shared
-  textures stored elsewhere are never renamed
+* renames only copies this tool made for this scene — it keeps a small list of
+  them in `maps\.ivo_material_renamer.json`
 * never overwrites an existing file (adds `_001` if needed)
-* shows the full list and asks again before renaming
+* shows the full list and asks again before copying and before renaming
 * updates all bitmap paths in the scene
 
-If another scene points at the same local files, it will lose them. Save your
-scene after renaming so the new paths are stored.
+Save your scene after renaming so the new paths are stored.
+
+If the scene has never been saved, the tool offers **Save As** first, because
+the files need the scene's folder. Say no and only the material names change.
+
+## Collecting textures into the scene folder (new in 1.1)
+
+Textures often live in a shared library, outside the scene's folder. Tick
+**Collect textures into scene folder first** and the tool:
+
+* **copies** every texture of the selected materials that sits outside the
+  scene's folder into `<scene folder>\maps\` — the originals are never touched
+* points the maps in the scene at the copies
+* copies a texture used by several materials only once
+* never overwrites: a different file with the same name gets `_001`
+* shows the list and asks before copying
+
+With renaming on, textures already inside the scene folder are copied too,
+so that only copies get renamed. No Resource Collector needed. Save the scene
+afterwards to keep the new paths.
 
 ## Tips
 
@@ -90,7 +145,7 @@ scene after renaming so the new paths are stored.
 
 ## Support
 
-Found a bug or want a feature? Open an issue.
+Found a bug or want a feature? Write to **support@pixellabsoft.com** — made by Pixel Lab.
 
 If the tool is useful, you can support it on Gumroad — pay what you want,
 zero is fine. _(link coming)_
