@@ -1,5 +1,5 @@
 # =============================================================
-#  Ivo Material Renamer for 3ds Max v1.4 - worker script
+#  Ivo Material Renamer for 3ds Max v1.4.1 - worker script
 #  Called by Ivo_Material_Renamer.ms - do not run alone.
 #
 #  Reads the API key from:
@@ -18,7 +18,7 @@ TIMEOUT = 120
 #: Materials per request. Keeps every request well under the API's limits on
 #: images and reply length, whatever the size of the scene.
 BATCH = 30   # up to 2 pictures per material (its part + its texture)
-VERSION = "1.4"
+VERSION = "1.4.1"
 TITLE = "Ivo Material Renamer " + VERSION
 
 try:
@@ -150,6 +150,8 @@ def _inside(path, folder):
 # Material, Standard, CoronaPhysicalMtl and others. First match wins: the more
 # specific words come first ("coat_bump" before "bump", "refr" before "refl").
 SUFFIX_RULES = [
+    # masks of Blend (Mask), VRayBlendMtl (texmap_blend), CoronaLayeredMtl (mixmaps)
+    (("mask", "texmap_blend", "mixmap"), "Mask"),
     (("coat_bump", "coatbump", "clearcoatbump"), "CoatNrm"),
     (("bump", "normal"), "Nrm"),
     (("refractionglossiness", "refraction_gloss", "refraction_rough", "refrrough"), "RefrRough"),
@@ -699,6 +701,11 @@ def _bitmap_target(m):
         return "VRay"
     if cls.startswith("Corona") and hasattr(mxs, "CoronaBitmap"):
         return "Corona"
+    # a plain Blend / Double Sided follows the materials inside it
+    for sm in sub_mtls(m):
+        t = _bitmap_target(sm)
+        if t:
+            return t
     return None
 
 
@@ -754,8 +761,7 @@ def rename_maps(mats, finals):
     is named after the first one. Returns how many were renamed."""
     done, named = 0, set()
     for m, final in zip(mats, finals):
-        if sub_mtls(m):
-            continue
+        # containers too: a Blend's mask is <Blend>_Mask
         used = set()
         for slot, tex in _texmap_props(m):
             base = "%s_%s" % (final, slot_suffix(slot))

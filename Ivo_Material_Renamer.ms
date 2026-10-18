@@ -1,5 +1,5 @@
 /*=============================================================
-	Ivo Material Renamer for 3ds Max  v1.4
+	Ivo Material Renamer for 3ds Max  v1.4.1
 	---------------------------------------------------------
 	Gives meaningful names to scene materials by letting
 	Claude AI "look" at their textures and the viewport.
@@ -49,7 +49,7 @@ try (destroyDialog ::IvoMatRenamerRoll) catch()
 		else (substring k 1 8) + "..." + (substring k (k.count-3) 4)
 	)
 
-	rollout IvoMatRenamerRoll "Ivo Material Renamer v1.4" width:330 height:390
+	rollout IvoMatRenamerRoll "Ivo Material Renamer v1.4.1" width:330 height:390
 	(
 		label lblT1 "Renames scene materials by recognizing" pos:[12,10]
 		label lblT2 "their textures with AI." pos:[12,26]
@@ -196,7 +196,7 @@ try (destroyDialog ::IvoMatRenamerRoll) catch()
 			setINISetting iniFile "API" "CollectTextures" (if fileOps and chkCollect.checked then "1" else "0")
 			setINISetting iniFile "API" "RenameMaps" (if chkMaps.checked then "1" else "0")
 			setINISetting iniFile "API" "ConvertBitmaps" (if chkConv.checked then "1" else "0")
-			setINISetting iniFile "API" "Version" "1.4"   -- the .py checks it matches
+			setINISetting iniFile "API" "Version" "1.4.1"   -- the .py checks it matches
 			python.ExecuteFile pyFile
 		)
 	)

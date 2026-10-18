@@ -1,4 +1,4 @@
-# Ivo Material Renamer for 3ds Max — v1.4
+# Ivo Material Renamer for 3ds Max — v1.4.1
 
 ![Ivo Material Renamer in 3ds Max](docs/demo.gif)
 
@@ -101,8 +101,9 @@ your own account — this tool takes no cut and has no server of its own.
 in the Diffuse slot of `Pillow_Fabric` becomes `Pillow_Fabric_Diff`, a Falloff
 or Color Correction inside it `Pillow_Fabric_Diff_Falloff`,
 `Pillow_Fabric_Diff_ColorCorrection`, and the bitmaps under them
-`Pillow_Fabric_Diff_Map`, `Pillow_Fabric_Diff_Map_2`. A map shared by several
-materials is named after the first one.
+`Pillow_Fabric_Diff_Map`, `Pillow_Fabric_Diff_Map_2`. The mask of a Blend,
+VRayBlendMtl or CoronaLayeredMtl is named after that material: `Rug_Blend_Mask`.
+A map shared by several materials is named after the first one.
 
 ## Bitmap → VRayBitmap / CoronaBitmap (optional, off by default)
 
