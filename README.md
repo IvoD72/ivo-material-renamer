@@ -1,4 +1,6 @@
-# Ivo Material Renamer for 3ds Max — v1.3
+# Ivo Material Renamer for 3ds Max — v1.4
+
+![Ivo Material Renamer in 3ds Max](docs/demo.gif)
 
 Gives your materials real names. Instead of `Material #36`, `02` or `VRayMtl_07`
 you get `Oak_Wood`, `Brushed_Steel`, `Oyster_Shell`.
@@ -17,6 +19,8 @@ Duplicates are numbered `_001`, `_002` automatically.
 * Proposes a descriptive name for every material
 * Shows the proposals — nothing is renamed until you confirm
 * Numbers duplicates `_001`, `_002`, …
+* Gives the maps readable names too — no more `Map #2070298415`
+* Optionally converts plain Bitmaps to VRayBitmap / CoronaBitmap
 * Optionally copies the textures into the scene's own folder first
 * Optionally renames the texture **files** on disk to match, and fixes the paths
   in the scene
@@ -90,6 +94,25 @@ environment variable instead and leave the field empty.
 
 **Cost:** roughly 1–3 US cents per asset. You pay Anthropic directly through
 your own account — this tool takes no cut and has no server of its own.
+
+## Map names (on by default)
+
+**Also rename the maps** names every map after its material and slot: the map
+in the Diffuse slot of `Pillow_Fabric` becomes `Pillow_Fabric_Diff`, a Falloff
+or Color Correction inside it `Pillow_Fabric_Diff_Falloff`,
+`Pillow_Fabric_Diff_ColorCorrection`, and the bitmaps under them
+`Pillow_Fabric_Diff_Map`, `Pillow_Fabric_Diff_Map_2`. A map shared by several
+materials is named after the first one.
+
+## Bitmap → VRayBitmap / CoronaBitmap (optional, off by default)
+
+**Convert Bitmap to VRayBitmap / CoronaBitmap** replaces every plain Bitmap
+under a V-Ray material with a VRayBitmap, and under a Corona material with a
+CoronaBitmap — also inside Falloff, Color Correction and similar maps. The file,
+tiling, offset, angle, blur, mirroring, mapping channel, output and cropping are
+carried over, and every material that used the map gets the new one. Bitmaps of
+other materials (Standard, Physical) are left alone. One Ctrl+Z undoes the
+conversion.
 
 ## Renaming texture files (optional, off by default)
 

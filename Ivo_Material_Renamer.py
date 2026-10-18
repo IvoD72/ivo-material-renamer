@@ -1,5 +1,5 @@
 # =============================================================
-#  Ivo Material Renamer for 3ds Max v1.3 - worker script
+#  Ivo Material Renamer for 3ds Max v1.4 - worker script
 #  Called by Ivo_Material_Renamer.ms - do not run alone.
 #
 #  Reads the API key from:
@@ -18,7 +18,7 @@ TIMEOUT = 120
 #: Materials per request. Keeps every request well under the API's limits on
 #: images and reply length, whatever the size of the scene.
 BATCH = 30   # up to 2 pictures per material (its part + its texture)
-VERSION = "1.3"
+VERSION = "1.4"
 TITLE = "Ivo Material Renamer " + VERSION
 
 try:
@@ -79,6 +79,14 @@ def rename_textures_enabled():
 
 def collect_textures_enabled():
     return _ini_value("CollectTextures", "0") == "1"
+
+
+def rename_maps_enabled():
+    return _ini_value("RenameMaps", "1") == "1"
+
+
+def convert_bitmaps_enabled():
+    return _ini_value("ConvertBitmaps", "0") == "1"
 
 
 # ---------------- scene data ----------------
@@ -625,6 +633,153 @@ def material_props(m):
     return ", ".join(out)
 
 
+# ---------------- map names and Bitmap conversion (optional) ----------------
+
+_MXS_CONVERT = r"""
+global ivoMR_toVRay
+global ivoMR_toCorona
+fn ivoMR_copyProps src dst =
+(
+    for p in getPropNames src do try (setProperty dst p (getProperty src p)) catch ()
+)
+-- Bitmap -> VRayBitmap: same placement (StandardUVGen) and output, so 1:1
+fn ivoMR_toVRay b =
+(
+    local n = VRayBitmap()
+    n.HDRIMapName = b.filename
+    ivoMR_copyProps b.coords n.coords
+    ivoMR_copyProps b.output n.output
+    n.alphaSource = b.alphaSource
+    n.monoOutput = b.monoOutput
+    n.RGBoutput = b.RGBoutput
+    n.cropplace_on = b.apply
+    n.cropplace_mode = b.cropPlace
+    n.cropplace_u = b.clipu
+    n.cropplace_v = b.clipv
+    n.cropplace_width = b.clipw
+    n.cropplace_height = b.cliph
+    n.name = b.name
+    replaceInstances b n
+    n
+)
+-- Bitmap -> CoronaBitmap: the same settings under Corona's own names
+fn ivoMR_toCorona b =
+(
+    local n = CoronaBitmap()
+    local c = b.coords
+    n.filename = b.filename
+    n.uvwChannel = c.mapChannel
+    n.wAngle = c.W_angle
+    n.uAngle = c.U_angle
+    n.tilingU = if c.U_Mirror then 2 else if c.U_Tile then 1 else 0
+    n.tilingV = if c.V_Mirror then 2 else if c.V_Tile then 1 else 0
+    n.filteringBlur = c.blur
+    n.realWorldScale = c.realWorldScale
+    -- scale and offset LAST: the settings above recompute them
+    n.uvwScale = [c.U_Tiling, c.V_Tiling, 1]
+    n.uvwOffset = [c.U_Offset, c.V_Offset, 0]
+    ivoMR_copyProps b.output n.output
+    n.clippingOn = b.apply
+    n.clippingU = b.clipu
+    n.clippingV = b.clipv
+    n.clippingWidth = b.clipw
+    n.clippingHeight = b.cliph
+    n.name = b.name
+    replaceInstances b n
+    n
+)
+"""
+
+
+def _bitmap_target(m):
+    """Which bitmap a material's maps should become: VRayBitmap for V-Ray
+    materials, CoronaBitmap for Corona ones, None for anything else."""
+    cls = str(mxs.classOf(m)).lstrip("_")
+    if cls.startswith("VRay") and hasattr(mxs, "VRayBitmap"):
+        return "VRay"
+    if cls.startswith("Corona") and hasattr(mxs, "CoronaBitmap"):
+        return "Corona"
+    return None
+
+
+def convert_bitmaps(mats):
+    """Every plain Bitmap under a V-Ray / Corona material becomes VRayBitmap /
+    CoronaBitmap - file, placement, tiling, blur, output and cropping carried
+    over, every reference replaced. Returns how many were converted."""
+    try:
+        mxs.execute(_MXS_CONVERT)
+    except Exception as e:
+        print("  (conversion not available: %s)" % e)
+        return 0
+    done, seen = 0, set()
+    for m in mats:
+        target = _bitmap_target(m)
+        if not target:
+            continue
+        for _, tex in _texmap_props(m):
+            leaves = []
+            _leaf_bitmaps(tex, leaves)
+            for b in leaves:
+                if str(mxs.classOf(b)) != "Bitmaptexture" or _handle(b) in seen:
+                    continue
+                seen.add(_handle(b))
+                try:
+                    (mxs.ivoMR_toVRay if target == "VRay" else mxs.ivoMR_toCorona)(b)
+                    done += 1
+                except Exception as e:
+                    print("   could not convert %s: %s" % (b.name, e))
+    return done
+
+
+_SHORT = {"Bitmaptexture": "Map", "VRayBitmap": "Map", "CoronaBitmap": "Map", "OSLMap": "Map",
+          "Color_Correction": "ColorCorrection", "VRayNormalMap": "Normal",
+          "CoronaNormal": "Normal", "Normal_Bump": "Normal", "CompositeTexturemap": "Composite"}
+
+
+def _all_maps(tex, out, seen):
+    """tex and every map below it, top first."""
+    h = _handle(tex)
+    if h in seen:
+        return
+    seen.add(h)
+    out.append(tex)
+    for _, st in _texmap_props(tex):
+        _all_maps(st, out, seen)
+
+
+def rename_maps(mats, finals):
+    """Gives the maps of each material readable names: the map in a slot is
+    <Material>_<Diff|Rough|Nrm...>, maps inside it add their kind
+    (_Falloff, _ColorCorrection, _Map ...). A map shared by several materials
+    is named after the first one. Returns how many were renamed."""
+    done, named = 0, set()
+    for m, final in zip(mats, finals):
+        if sub_mtls(m):
+            continue
+        used = set()
+        for slot, tex in _texmap_props(m):
+            base = "%s_%s" % (final, slot_suffix(slot))
+            nodes = []
+            _all_maps(tex, nodes, set())
+            for i, n in enumerate(nodes):
+                h = _handle(n)
+                if h in named:
+                    continue
+                cls = str(mxs.classOf(n))
+                name = base if i == 0 else "%s_%s" % (base, _SHORT.get(cls, cls.replace(" ", "")))
+                cand, k = name, 2
+                while cand in used:
+                    cand, k = "%s_%d" % (name, k), k + 1
+                used.add(cand)
+                named.add(h)
+                try:
+                    n.name = cand
+                    done += 1
+                except Exception as e:
+                    print("   could not rename map %s: %s" % (n.name, e))
+    return done
+
+
 # ---------------- collecting textures (optional) ----------------
 
 def _texture_nodes(mats):
@@ -1124,17 +1279,29 @@ def run():
         m.name = f
     print(">>> Names applied. <<<")
 
+    # ---- optional: Bitmap -> VRayBitmap / CoronaBitmap, then the map names ----
+    map_msg = ""
+    if convert_bitmaps_enabled():
+        with pymxs.undo(True):
+            n = convert_bitmaps(mats)
+        map_msg += "\nBitmaps converted to VRayBitmap / CoronaBitmap: %d" % n
+        print(">>> Bitmaps converted: %d <<<" % n)
+    if rename_maps_enabled():
+        n = rename_maps(mats, finals)
+        map_msg += "\nMaps renamed: %d" % n
+        print(">>> Maps renamed: %d <<<" % n)
+
     # ---- optional: collect the textures, then rename the files ----
-    tex_msg = ""
+    tex_msg = map_msg
     collect, rename = collect_textures_enabled(), rename_textures_enabled()
     if collect or rename:
         if scope != 1:
-            tex_msg = ("\n\nTexture files were NOT touched:\n"
-                       "that only works in 'Only on SELECTED objects' mode.")
+            tex_msg += ("\n\nTexture files were NOT touched:\n"
+                        "that only works in 'Only on SELECTED objects' mode.")
             print(">>> Texture files skipped (selection mode only). <<<")
         elif not str(mxs.maxFilePath or ""):
-            tex_msg = ("\n\nTexture files were NOT touched:\n"
-                       "the scene is not saved, so it has no folder yet.")
+            tex_msg += ("\n\nTexture files were NOT touched:\n"
+                        "the scene is not saved, so it has no folder yet.")
             print(">>> Texture files skipped (scene not saved). <<<")
         else:
             changed = False
@@ -1150,7 +1317,7 @@ def run():
             if changed:
                 tex_msg += "\n\nSave the scene to keep the new paths."
     else:
-        tex_msg = "\n\nTexture files: not touched (both texture options were off)."
+        tex_msg += "\n\nTexture files: not touched (both texture options were off)."
 
     info("Renamed %d materials." % len(mats) + tex_msg)
 

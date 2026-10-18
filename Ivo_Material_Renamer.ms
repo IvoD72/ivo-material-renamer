@@ -1,5 +1,5 @@
 /*=============================================================
-	Ivo Material Renamer for 3ds Max  v1.3
+	Ivo Material Renamer for 3ds Max  v1.4
 	---------------------------------------------------------
 	Gives meaningful names to scene materials by letting
 	Claude AI "look" at their textures and the viewport.
@@ -49,7 +49,7 @@ try (destroyDialog ::IvoMatRenamerRoll) catch()
 		else (substring k 1 8) + "..." + (substring k (k.count-3) 4)
 	)
 
-	rollout IvoMatRenamerRoll "Ivo Material Renamer v1.3" width:330 height:354
+	rollout IvoMatRenamerRoll "Ivo Material Renamer v1.4" width:330 height:390
 	(
 		label lblT1 "Renames scene materials by recognizing" pos:[12,10]
 		label lblT2 "their textures with AI." pos:[12,26]
@@ -63,19 +63,21 @@ try (destroyDialog ::IvoMatRenamerRoll) catch()
 		button btnGetKey "Get a key" pos:[118,114] width:96 height:26
 		button btnHelp "How to (help)" pos:[220,114] width:94 height:26
 
-		groupBox grpAct "" pos:[8,160] width:314 height:144
+		groupBox grpAct "" pos:[8,160] width:314 height:180
 
 		radiobuttons rbScope "" labels:#("Only on SELECTED objects", "All materials in the scene") pos:[18,174] columns:1 default:1
 
-		checkbox chkCollect "Collect textures into scene folder first" pos:[18,212] checked:false
-		checkbox chkTex "Also rename texture FILES on disk" pos:[18,230] checked:false
-		label lblTexWarn "(renames copies in maps, never the originals)" pos:[36,246]
+		checkbox chkMaps "Also rename the maps (Map #...)" pos:[18,212] checked:true
+		checkbox chkConv "Convert Bitmap to VRayBitmap / CoronaBitmap" pos:[18,230] checked:false
+		checkbox chkCollect "Collect textures into scene folder first" pos:[18,248] checked:false
+		checkbox chkTex "Also rename texture FILES on disk" pos:[18,266] checked:false
+		label lblTexWarn "(renames copies in maps, never the originals)" pos:[36,282]
 
-		button btnRun "ANALYZE & RENAME" pos:[16,266] width:298 height:30
+		button btnRun "ANALYZE & RENAME" pos:[16,302] width:298 height:30
 
-		label lblFoot "Cost is roughly 1-3 cents per asset." pos:[12,312]
-		label lblBy "Made by Pixel Lab  -" pos:[12,332]
-		hyperLink lnkMail "support@pixellabsoft.com" address:"mailto:support@pixellabsoft.com" pos:[114,332]
+		label lblFoot "Cost is roughly 1-3 cents per asset." pos:[12,348]
+		label lblBy "Made by Pixel Lab  -" pos:[12,368]
+		hyperLink lnkMail "support@pixellabsoft.com" address:"mailto:support@pixellabsoft.com" pos:[114,368]
 
 		fn refreshStatus =
 		(
@@ -192,7 +194,9 @@ try (destroyDialog ::IvoMatRenamerRoll) catch()
 			setINISetting iniFile "API" "Scope" (rbScope.state as string)
 			setINISetting iniFile "API" "RenameTextures" (if fileOps and chkTex.checked then "1" else "0")
 			setINISetting iniFile "API" "CollectTextures" (if fileOps and chkCollect.checked then "1" else "0")
-			setINISetting iniFile "API" "Version" "1.3"   -- the .py checks it matches
+			setINISetting iniFile "API" "RenameMaps" (if chkMaps.checked then "1" else "0")
+			setINISetting iniFile "API" "ConvertBitmaps" (if chkConv.checked then "1" else "0")
+			setINISetting iniFile "API" "Version" "1.4"   -- the .py checks it matches
 			python.ExecuteFile pyFile
 		)
 	)
